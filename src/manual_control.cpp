@@ -43,15 +43,15 @@ void joystickCallback(const isc_joy::xinput::ConstPtr& joy){
 
 	// send drive mode signal to robot state controller
 	std_msgs::Bool driveModeSignal;
-	if (joy->Start) { //The Start button has been pressed
+	if (joy->Start && !startButtonDown) { //The Start button has been pressed
 		startButtonDown = true;
-		driveModeSignal->data = true;
-		driveModeSignalPub.publish(driveModeSignal);
-	} else if (startButtonDown && !joy->Start) {
-		startButtonDown = false;
 		driveModeSignal->data = false;
 		driveModeSignalPub.publish(driveModeSignal);
-	} else {
+	} else if (!joy->Start && startButtonDown) { // start button released
+		startButtonDown = false;
+		driveModeSignal->data = true;
+		driveModeSignalPub.publish(driveModeSignal);
+	} else { // some other button was pressed
 		driveModeSignal->data = false;
 		driveModeSignalPub.publish(driveModeSignal);
 	}
@@ -69,7 +69,7 @@ int main(int argc, char **argv){
 	n.param("manual_control_turn_multiplier", turnMultiplier, 0.5);
 
 	manualPub = n.advertise<geometry_msgs::Twist>("manual_control", 5);
-	driveModeSignalPub = n.advertise<std_msgs::Bool>("/signal/drive_mode");
+	driveModeSignalPub = n.advertise<std_msgs::Bool>("/signal/drive_mode", 5);
 
 	ros::Subscriber joystickSub = n.subscribe("joystick/xinput", 5, joystickCallback);
 
