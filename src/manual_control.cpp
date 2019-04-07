@@ -1,23 +1,26 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
+#include "std_msgs/Bool.h"
 #include "isc_joy/xinput.h"
 
 #include <string>
 
 ros::Publisher manualPub;
+ros::Publisher driveModeSignalPub;
 
 bool flipForwardBackward = false;
 bool flipLeftRight = false;
+bool startButtonDown = false;
 
 double speedMultiplier;
 double turnMultiplier;
 
 bool enableLogging;
 
-void joystickCallback(const isc_joy::xinput::ConstPtr& joy){	
-	/* This fires every time a button is pressed/released
-	and when an axis changes (even if it doesn't leave the
-	deadzone). */
+/* This fires every time a button is pressed/released
+and when an axis changes (even if it doesn't leave the
+deadzone). */
+void joystickCallback(const isc_joy::xinput::ConstPtr& joy){
 
 	bool enableDriving = joy->LB; //the dead man's switch
 
@@ -38,7 +41,22 @@ void joystickCallback(const isc_joy::xinput::ConstPtr& joy){
 	msg.angular.z = enableDriving ? joyTurn : 0;
 	manualPub.publish(msg);
 
-	if(enableLogging) ROS_INFO("Manual Control: %s linear.x=%f angular.z=%f", joy->LB ? "on" : "off", msg.linear.x, msg.angular.z);
+	// send drive mode signal to robot state controller
+	std_msgs::Bool driveModeSignal;
+	if (joy->Start) { //The Start button has been pressed
+		startButtonDown = true;
+		driveModeSignal->data = true;
+		driveModeSignalPub.publish(driveModeSignal);
+	} else if (startButtonDown && !joy->Start) {
+		startButtonDown = false;
+		driveModeSignal->data = false;
+		driveModeSignalPub.publish(driveModeSignal);
+	} else {
+		driveModeSignal->data = false;
+		driveModeSignalPub.publish(driveModeSignal);
+	}
+
+	ROS_INFO_COND(enableLogging, "Manual Control: %s linear.x=%f angular.z=%f", joy->LB ? "on" : "off", msg.linear.x, msg.angular.z);
 }
 
 int main(int argc, char **argv){
@@ -47,11 +65,11 @@ int main(int argc, char **argv){
 	ros::NodeHandle n;
 
 	n.param("manual_control_enable_logging", enableLogging, false);
-
 	n.param("manual_control_speed_multiplier", speedMultiplier, 1.0);
 	n.param("manual_control_turn_multiplier", turnMultiplier, 0.5);
 
 	manualPub = n.advertise<geometry_msgs::Twist>("manual_control", 5);
+	driveModeSignalPub = n.advertise<std_msgs::Bool>("/signal/drive_mode");
 
 	ros::Subscriber joystickSub = n.subscribe("joystick/xinput", 5, joystickCallback);
 
