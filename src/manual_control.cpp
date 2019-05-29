@@ -51,7 +51,7 @@ int main(int argc, char **argv){
 	n.param("manual_control_speed_multiplier", speedMultiplier, 1.0);
 	n.param("manual_control_turn_multiplier", turnMultiplier, 0.5);
 
-	manualPub = n.advertise<geometry_msgs::Twist>("manual_control", 5);
+	manualPub = n.advertise<geometry_msgs::Twist>("manual_control_vel", 5);
 
 	ros::Subscriber joystickSub = n.subscribe("joystick/xinput", 5, joystickCallback);
 
